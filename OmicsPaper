@@ -1,0 +1,255 @@
+---
+title: "Untitled"
+author: "Felipe"
+date: "2024-09-12"
+output: html_document
+---
+```{r}
+library(writexl)
+library(rlist)
+library(grid)
+library(VennDiagram)
+library(tidyverse)
+library(dplyr)
+```
+
+```{r}
+options(max.print = 10000)
+#Load First 5 data bases 
+lista = read.csv("/Users/Felipe/Desktop/MATRIX/ECM database filtering/firstdatabasecsv.csv", sep = ';')
+
+matrisomereal <- read.csv("/Users/Felipe/Downloads/Hs_Matrisome_Masterlist_Naba et al_2012.xlsx - Hs_Matrisome_Masterlist.csv", sep = ',')
+
+matrisomereal <- matrisomereal$Gene.Symbol
+
+# Assuming your original vector is named `matrisomereal`
+# Desired final length
+desired_length <- 3969
+
+# Calculate how many times to add "&&&"
+times_to_add <- desired_length - length(matrix)
+
+# Create a vector of "&&&" repeated the necessary number of times
+extension_vector <- rep("&&&", times_to_add)
+
+# Combine the original vector with the extension and reassign it to `matrisomereal`
+matrix <- c(matrix, extension_vector)
+
+# Check the length of the extended vector to ensure it's 3970
+length(matrisomereal)  # Should be 3970
+
+# Assuming your data frame is called `df`
+# Replace the existing `MATRISOME` column with the new `matrisomereal` vector
+lista$MATRISOME <- matrisomereal
+
+# Verify that the column has been replaced
+
+lista <- lista[-3970, ]
+
+
+options(max.print = 10000)
+#Let's calculate the amount of starting genes
+#Just went to naba's website and they have 1027 proteins, so i'll have to change that.
+matrisome <- unique(lista$MATRISOME)
+matrisome <- matrisome [1:1027]
+#Now it is 1027
+#Great, Matrisome has 1068 genes
+mdsec <- unique(lista$MDSEC)
+mdsec <- mdsec[1:3205]
+#MDSEC has 3205 genes
+signalp <- unique(lista$SIGNALP)
+signalp <- signalp[1:2792]
+#SIGNALP has 2792 genes
+phobius <- unique(lista$PHOBIUS)
+phobius <- phobius[1:3606]
+#PHOBIUS has 3606  genes
+spoctopus <- unique(lista$SPOCTOPUS)
+spoctopus <- spoctopus[1:3969]
+
+#Now let's add them up
+starting_point <- c(matrisome,mdsec,phobius,spoctopus,signalp)
+starting_point <- unique(starting_point)
+print(starting_point)
+###########
+#STARTING POINT IS 4823 GENES
+```
+
+
+```{r}
+###########
+
+#MDSEC esta comprendido por todas las otras bases de datos asi que podemos seguir el analisis con Matrisome, Spocto, Phobius y SignalP
+
+#                 MATRISOMEPRIME   MDSEC         SIGNALP     PHOBIUS            SPOCTOPUS
+##                  #   1     #      2       #     3   #       4            #       5
+
+#First let's calculate the intersection between Matri, Spocto and Phobius to find those 56 proteins 
+#Let's find those 56 proteins!
+signalp_non_overlap <- signalp[!signalp %in% lista$MATRISOME]
+signalp_non_overlap <- signalp_non_overlap[!signalp_non_overlap %in% lista$MDSEC]
+signalp_non_overlap <- signalp_non_overlap[!signalp_non_overlap %in% lista$PHOBIUS]
+signalp_non_overlap <- signalp_non_overlap[!signalp_non_overlap %in% lista$SPOCTOPUS]
+
+
+
+#Let's find out which ones we kept and which ones we deleted. Since we add those 19 to matrisome to make it matrisomeprime I can use matrisomeprime to find out which 19 proteins where added from signal P and which ones were deleted.
+lista2 <- read.csv("/Users/Felipe/Desktop/MATRIX/ECM database filtering/databasenew.csv", sep = ';')
+matrisomeprime <- lista2$MATRISOME
+
+deleted_from_signalp <- signalp_non_overlap[!signalp_non_overlap %in% matrisomeprime]
+added_from_signalp_to_matrisome <- signalp_non_overlap[signalp_non_overlap %in% matrisomeprime]
+#Let's store the deleted names from signalp into a new dataframe
+signalplabel <- rep("SIGNALP First Filter", times =37)
+df1 <- data.frame(gene = deleted_from_signalp,
+                      database = signalplabel)
+
+
+#Based on the venn diagram from my secretome presentation we can get rid of MDSEC and we already added those 19 proteins from SignalP to matrisome to make it matrisome prime.
+#So we got rid of two data bases, MDSEC and SIGNALP. That leaves us with PHOBIUS, SPOCTO and MAT prime
+#PHOBIUS has 3606 proteins
+#SPOCTOPUS has 3969 proteins
+#Following what I did from my presentation, I used the transmembrane version of those data bases (PHOBIUS and SPOCTOPUS) to filter out proteins that are membrane bound.
+transmembranephobius <- read.csv("/Users/Felipe/Desktop/MATRIX/protein_class_Phobius (1).csv")
+transmembranephobius <- rbind(colnames(transmembranephobius), transmembranephobius)
+transmembranephobius <- transmembranephobius$A3GALT2
+transmembranespocto <- read.csv("/Users/Felipe/Desktop/MATRIX/protein_class_SPOCTOPUS (2).csv")
+transmembranespocto <- rbind(colnames(transmembranespocto), transmembranespocto)
+transmembranespocto <- transmembranespocto$A2M
+
+
+transmembrane_spocto_phobius <- c(transmembranephobius, transmembranespocto)
+transmembrane_spocto_phobius <- unique(transmembrane_spocto_phobius)
+
+
+
+
+##############################################################################
+
+#Let's add 19 proteins from signalp to matrisome to get the newer version of the venn diagram 
+matrisome <- c(matrisome, added_from_signalp_to_matrisome)
+
+#I need the non overlapping member from phobius with matrisome y spoctopus, non overlapping members from spocto with matri and spocto and the non overlapping members from spocto + phobius with matrisome.
+
+#Let's do phobius first 
+phobius_non_overlap <- phobius[!phobius %in% matrisome]
+phobius_non_overlap <- phobius_non_overlap[!phobius_non_overlap %in% spoctopus]
+deleted_from_phobius <- phobius_non_overlap[phobius_non_overlap %in% transmembranephobius]
+print(deleted_from_phobius)
+phobiuslabel <- rep("PHOBIUS Transmembrane Filter", times = 106)
+df2 <- data.frame(gene = deleted_from_phobius,
+                  database = phobiuslabel)
+#Let's do spoctopus second
+spoctopus_non_overlap  <- spoctopus[!spoctopus %in% matrisome]
+spoctopus_non_overlap <- spoctopus_non_overlap[!spoctopus_non_overlap %in% phobius]
+deleted_from_spoctopus <- spoctopus_non_overlap[spoctopus_non_overlap %in% transmembranespocto]
+spoctopuslabel <- rep("SPOCTOPUS Transmembrane Filter", times = 332)
+df3 <- data.frame(gene = deleted_from_spoctopus,
+                  database = spoctopuslabel)
+
+#Let's do spoctopus+phobius non overlap with matri now.
+phobius_spocto <- intersect(spoctopus,phobius)
+phobius_spocto_matri <- intersect(intersect(phobius,spoctopus), matrisome)
+phobius_spocto <- phobius_spocto[!phobius_spocto %in% phobius_spocto_matri]
+deleted_from_phobius_and_spocto <- phobius_spocto[phobius_spocto %in% transmembrane_spocto_phobius]
+spocto_phobius_label <- rep("PHOBIUS + SPOCTOPUS Overlap Transmembrane Filter", times = 884)
+df4 <- data.frame(gene = deleted_from_phobius_and_spocto,
+                  database = spocto_phobius_label)
+deleted <- bind_rows(df1,df2,df3,df4)
+#Let's do a sanity check
+#Done, it worked.
+
+
+#Let's update PHOBIUS and SPOCTO based on the transmembrane filter
+phobius <- phobius[!phobius %in%deleted_from_phobius]
+phobius <- phobius[!phobius %in%deleted_from_phobius_and_spocto]
+
+spoctopus <- spoctopus[!spoctopus %in% deleted_from_spoctopus]
+spoctopus <- spoctopus[!spoctopus %in% deleted_from_phobius_and_spocto]
+
+#Phobius should've gone from 3606 to 2616, which it did
+#Spoctopus shoul've gone from 3969 to 2753, which it did
+
+#Sanity check 
+first_checkpoint <- c(matrisome,phobius,spoctopus)
+first_checkpoint <- unique(first_checkpoint)
+```
+
+So far, ya averigue que genes se eliminaron de signalp en el primer filtro. Borre MDSEC. Y averigue que genes se eliminaron de Phobius y Spoctopus con el filtro de transmembrana.
+Aparentemente se eliminaron 1359 genes. Veremos si adds up.
+
+
+```{r}
+#Let's save the filtered data bases so far so we have a copy of them in case we want to modify the first verions of it.
+phobius_atf <- phobius
+spoctopus_atf <- spoctopus
+matrisome_atf <- matrisome
+
+compartments <- read.csv("/Users/Felipe/Desktop/MATRIX/protein_location.csv", header = TRUE, sep = ',')
+compartments <- as_tibble(compartments)
+
+#Creamos las bases de datos usando compartments
+membrane = compartments %>%
+  filter(grepl('Membrane', Location))
+membrane <- unique(membrane$Gene)
+
+extracellular = compartments %>%
+  filter(grepl('Extracellular', Location))
+extracellular <- unique(extracellular$Gene)
+
+##Let's start deleting proteins from phobius, spoctopus and their overlap using this database called compartments
+
+#First we calculate the non overlapping portion of phobius
+phobius_non_overlap <- phobius[!phobius %in% matrisome]
+phobius_non_overlap <- phobius_non_overlap[!phobius_non_overlap %in% spoctopus]
+
+#We subtract the would be deleted proteins comparing with the extracellular db we created from compartments.
+deleted_from_phobius_compartments <- phobius_non_overlap[!phobius_non_overlap %in% extracellular]
+label5 <- rep("PHOBIUS Compartments Filter", times = 378)
+df5 <- data.frame(gene = deleted_from_phobius_compartments,
+                  database = label5)
+
+#Second we calculate the non overlapping portion of spocto 
+spocto_non_overlap <- spoctopus[!spoctopus %in% matrisome]
+spocto_non_overlap <- spocto_non_overlap[!spocto_non_overlap %in% phobius]
+deleted_from_spocto_compartments <- spocto_non_overlap[!spocto_non_overlap %in% extracellular]
+label6 <- rep("SPOCTOPUS Compartments Filter", times = 478)
+df6 <- data.frame(gene = deleted_from_spocto_compartments,
+                  database = label6)
+
+
+
+
+#Third we calculate the intersection between spocto and phobius  non overlapping w matrisome
+spocto_phobius_int_minus_matri <- intersect(spoctopus, phobius)
+spocto_phobius_int_minus_matri <- spocto_phobius_int_minus_matri[!spocto_phobius_int_minus_matri %in% matrisome]
+#Adds up to 1405
+#Let's find out which ones are not extracellular
+deleted_from_phobius_and_spocto_compartments <- spocto_phobius_int_minus_matri[!spocto_phobius_int_minus_matri %in% extracellular]
+#751 should be deleted
+label7 <- rep("SPOCTOPUS + PHOBIUS Compartments Filter", times = 751)
+df7 <- data.frame(gene = deleted_from_phobius_and_spocto_compartments,
+                  database = label7)
+
+
+
+#Phobius has 2616 genes, it should go down to 1487 after filtering the non overlapping portion and the overlapping portion with spocto
+
+phobius <- phobius[!phobius %in% deleted_from_phobius_compartments]
+phobius <- phobius[!phobius %in% deleted_from_phobius_and_spocto_compartments]
+#it worked
+
+#Spocto has 2753 genes, it should go down to 1524
+spoctopus <- spoctopus[!spoctopus %in% deleted_from_spocto_compartments]
+spoctopus <- spoctopus[!spoctopus %in% deleted_from_phobius_and_spocto_compartments]
+
+second_checkpoint <- c(matrisome, spoctopus, phobius)
+second_checkpoint <- unique(second_checkpoint)
+#It adds up!
+
+deleted_genes_before_secretome <- bind_rows(df1,df2,df3,df4,df5,df6,df7)
+
+
+second_checkpoint <- as.data.frame(second_checkpoint)
+write_csv(second_checkpoint,"/Users/Felipe/Desktop/MATRIX/matrisomebeforesecretome.csv")
+
+
